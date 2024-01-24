@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Compromise room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script
+      src="https://cdn.socket.io/4.7.2/socket.io.min.js"
+      integrity="sha384-mZLF4UVrpi/QTWPA7BjNPEnkIfRFn4ZEO3Qt/HFklTJBj/gBOV8G3HcKn4NfQblz"
+      crossorigin="anonymous"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"
+      integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+      integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div>
+      <form id="inputForm">
+        <span for="option">Option: </span>
+        <input type="text" id="option" />
+        <p>ID: <span id="roomID"></span></p>
+      </form>
+      <script>
+        const appendOption = (option = undefined) => {
+          let i = 0;
+          if (option && !listOfOptions.includes(option)) {
+            listOfOptions.push(option);
+          }
+          $(".optionsOrdered").html("");
+          listOfOptions.forEach((val) => {
+            $(".optionsOrdered").append(`
+              <div class='row ${i}'>
+                <div class='col'>${i + 1}. ${val}</div>
+                <div class='col'>
+                  <button onclick='moveUp(${i})'>Move up</button>
+                  <button onclick='moveDown(${i})'>Move down</button>
+                </div>
+              </div>
+            `);
+            i++;
+          });
+        };
+        const moveUp = (index) => {
+          if (index === 0) {
+            return;
+          }
+          let temp = listOfOptions[index - 1];
+          listOfOptions[index - 1] = listOfOptions[index];
+          listOfOptions[index] = temp;
+          appendOption();
+        };
+        const moveDown = (index) => {
+          if (index === listOfOptions.length - 1) {
+            return;
+          }
+          let temp = listOfOptions[index + 1];
+          listOfOptions[index + 1] = listOfOptions[index];
+          listOfOptions[index] = temp;
+          appendOption();
+        };
+        const send = () => {
+          socket.emit("done", {
+            roomId: roomId,
+            clientId: clientId,
+            list: listOfOptions,
+          });
+        };
+        let listOfOptions = new Array();
+        const socket = io();
+        const roomId = document.baseURI.split("/rooms/")[1];
+        const clientId = document.cookie.split("=")[1];
+        $("#roomID").html(roomId);
+        socket.emit("register", { roomId });
+        socket.on("addOption", (val) => {
+          appendOption(val);
+        });
+        socket.on("picked", (obj) => {
+          alert(obj.picked);
+        });
+        socket.on("startupList", (obj) => {
+          obj.list.forEach((item) => {
+            appendOption(item);
+          });
+        });
+        const form = document.getElementById("inputForm");
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          let value = $("#option").val();
+          socket.emit("addOption", { roomId, clientId, value });
+          appendOption(value);
+          $("#option").val("");
+        });
+        window.addEventListener("beforeunload", (event) => {
+          event.preventDefault();
+          event.returnValue = "";
+          socket.emit("exiting", { clientId, roomId });
+        });
+      </script>
+    </div>
+    <br />
+    <div class="container">
+      <div class="row">
+        <div class="col">
+          <h3>Your organized list of options:</h3>
+          <div class="col optionsOrdered"></div>
+          <button onclick="send()">Done!</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
